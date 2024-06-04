@@ -1,5 +1,5 @@
 const generateOtp = () => {
-  let otp = Math.round(Math.random() * 1e4);
+  let otp = Math.floor(1000 + Math.random() * 9000);
   return otp;
 };
 

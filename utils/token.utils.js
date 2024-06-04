@@ -7,11 +7,11 @@ const signToken = async (id) => {
       id,
     };
     let token = jwt.sign(payload, secret, {
-      expiresIn: "30m",
+      expiresIn: "1h",
     });
     return token;
   } catch (error) {
-    throw new Error(error);
+    throw new jwt.JsonWebTokenError(error);
   }
 };
 
@@ -20,7 +20,7 @@ const verifyToken = async (token) => {
     let payload = jwt.verify(token, secret);
     return payload.id;
   } catch (error) {
-    throw new Error(error);
+    throw new jwt.JsonWebTokenError(error);
   }
 };
 
@@ -34,9 +34,23 @@ const signRefreshToken = async (id) => {
     });
     return token;
   } catch (error) {
-    throw new Error(error);
+    throw new jwt.JsonWebTokenError(error);
   }
 };
+
+// const signGoogleToken = async (id) => {
+//   try {
+//     let payload = {
+//       id,
+//     };
+//     let token = jwt.sign(payload, secret, {
+//       expiresIn: "2d",
+//     });
+//     return token;
+//   } catch (error) {
+//     throw new Error(error);
+//   }
+// };
 
 module.exports = {
   signRefreshToken,

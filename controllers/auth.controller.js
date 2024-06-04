@@ -5,16 +5,21 @@ const ForbiddenRequestError = require("../exceptions/forbidden.exception");
 const UnauthorizedRequestError = require("../exceptions/badRequest.exception");
 const { User } = require("../models/user.model");
 const { hashPassword, comparePassword } = require("../utils/hashing.utils");
-const { signToken, signRefreshToken } = require("../utils/token.utils");
+const {
+  signToken,
+  signRefreshToken,
+  verifyToken,
+} = require("../utils/token.utils");
 const { sendMail } = require("../utils/mailer.utils");
-const { generateOtp } = require("../utils/generateOtp");
+const { generateOtp } = require("../utils/otp.utils");
 
 // controller to register a user
 const register = AsyncHandler(async (req, res, next) => {
   // wrap all logic in a try-catch block for error handling
   try {
     // destructure the values needed from the request body
-    const { fullName, password, phone, email, dateOfBirth, role } = req.body;
+    const { fullName, userName, password, phone, email, dateOfBirth, role } =
+      req.body;
 
     // checks if any of the users essentials exist in the db
     const findUser = await User.findOne({ email });
@@ -32,8 +37,10 @@ const register = AsyncHandler(async (req, res, next) => {
       fullName,
       hash,
       phone,
+      userName,
       email,
       role,
+      loginScheme: "email",
       dateOfBirth,
     };
     // save the user details as a new entry in the db
@@ -62,6 +69,12 @@ const login = AsyncHandler(async (req, res, next) => {
     if (!findUser) {
       throw new UnauthorizedRequestError("User not Found");
     }
+
+    if (findUser.loginScheme !== "email")
+      throw new UnauthorizedRequestError(
+        `Invalid login scheme - login with ${findUser.loginScheme}`
+      );
+
     // compare the input password with the hash in the db
     const compare = await comparePassword(findUser.hash, password);
     if (!compare) {
@@ -94,6 +107,81 @@ const login = AsyncHandler(async (req, res, next) => {
       statusCode: status.OK,
       token: accessToken,
       data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const handleGoogleAuth = AsyncHandler(async (req, res, next) => {
+  try {
+    const user = req.user;
+    req.session.userId = user._id;
+    req.session.save((err) => {
+      if (err) {
+        console.log("err", err);
+      }
+    });
+    // sign access and refresh token to keep a user logged in
+    const accessToken = await signToken(user._id);
+
+    // const refreshToken = await signRefreshToken(user._id);
+
+    // store refresh token on the users browser and in the db
+    // res.cookie("refresh_token", refreshToken, {
+    //   httpOnly: true,
+    //   secure: true,
+    //   maxAge: 96 * 60 * 60 * 1000,
+    //   sameSite: "none",
+    // });
+
+    // const myUser = await User.findByIdAndUpdate(
+    //   user._id,
+    //   { refreshToken },
+    //   { new: true }
+    // ).lean();
+
+    // const sanitizedUser = {
+    //   ...myUser,
+    //   refreshToken: undefined,
+    //   _v: undefined,
+    // };
+
+    return res.status(status.OK).json({
+      status: "success",
+      statusCode: status.OK,
+      token: accessToken,
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+const verifyConsultant = AsyncHandler(async (req, res, next) => {
+  try {
+    const token = req.params.token;
+
+    if (!token) throw new ForbiddenRequestError("Invalid Parameters");
+
+    const id = await verifyToken(token);
+
+    const user = await User.findByIdAndUpdate(
+      id,
+      {
+        status: "complete",
+      },
+      { new: true }
+    ).lean();
+
+    if (!user) throw new ForbiddenRequestError("User not Found");
+
+    const newToken = await signToken(user._id);
+
+    return res.status(status.OK).json({
+      status: "success",
+      statusCode: status.OK,
+      token: newToken,
     });
   } catch (error) {
     next(error);
@@ -200,22 +288,46 @@ const confirmOtp = AsyncHandler(async (req, res, next) => {
 // controller to refresh the logged in user and renew access token
 const refresh = AsyncHandler(async (req, res, next) => {
   try {
+    console.log(req.session)
+    if (req.session.userId) {
+      const user = await User.findById(req.session.userId);
+
+      if (!user)
+        throw new ForbiddenRequestError(
+          "User not Found - invalid refresh token"
+        );
+
+      const accessToken = await signToken(user._id);
+      return res.status(status.OK).json({
+        status: "success",
+        statusCode: status.OK,
+        data: user,
+        token: accessToken,
+      });
+    }
     // destructure existing refresh token from the cookies sent to the browser in the log in endpoint
     const { refresh_token } = req.cookies;
 
     //fetch userId attached to request object from authMiddleware
 
-    const user = await User.findOne({ refreshToken: refresh_token });
+    const user = await User.findOne({ refreshToken: refresh_token }).lean();
 
     if (!user || !refresh_token || user.refreshToken !== refresh_token)
       throw new ForbiddenRequestError("User not Found - invalid refresh token");
     // after validating logged in user, pass a new access token
     const accessToken = await signToken(user._id);
 
+    const sanitizedUser = {
+      ...user,
+      refreshToken: undefined,
+      hash: undefined,
+      _v: undefined,
+    };
+
     return res.status(status.OK).json({
       status: "success",
       statusCode: status.OK,
-      data: user,
+      data: sanitizedUser,
       token: accessToken,
     });
   } catch (error) {
@@ -227,28 +339,22 @@ const refresh = AsyncHandler(async (req, res, next) => {
 const logOut = AsyncHandler(async (req, res, next) => {
   try {
     const { refresh_token } = req.cookies;
-
     const userId = req.userId;
 
-    const user = await User.findById(userId);
-
-    if (!user || !refresh_token || user.refreshToken != refresh_token) {
-      // clears cookie from user browser and logs user out
-      res.clearCookie("refresh_token", {
-        httpOnly: true,
-        secure: true,
-      });
-
-      user.refreshToken = undefined;
-      await user.save();
-      throw new ForbiddenRequestError(
-        "Invalid User Signed Out - no refresh token - invalid refresh token - user not found"
-      );
+    if (req.isAuthenticated() || req.session.userId) {
+      req.logout();
+      req.session.destroy();
+      res.clearCookie("connect.sid", { path: "/" });
+      return res.sendStatus(status.NO_CONTENT);
     }
+
+    const user = await User.findById(userId);
 
     res.clearCookie("refresh_token", {
       httpOnly: true,
       secure: true,
+      maxAge: 96 * 60 * 60 * 1000,
+      sameSite: "none",
     });
 
     user.refreshToken = undefined;
@@ -263,9 +369,11 @@ const logOut = AsyncHandler(async (req, res, next) => {
 module.exports = {
   register,
   login,
+  handleGoogleAuth,
   forgotPassword,
   resetPassword,
   confirmOtp,
   logOut,
+  verifyConsultant,
   refresh,
 };

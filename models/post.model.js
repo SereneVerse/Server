@@ -5,7 +5,7 @@ const postSchema = new Schema(
   {
     postedBy: {
       type: Types.ObjectId,
-      ref: "user",
+      ref: "User",
     },
     datePosted: {
       type: Date,
@@ -15,12 +15,19 @@ const postSchema = new Schema(
       type: String,
       required: true,
     },
+    title: {
+      type: String,
+      required: true,
+    },
+    url: {
+      type: String,
+    },
     comments: [
       {
-        comment : String,
+        comment: String,
         madeBy: {
           type: Types.ObjectId,
-          ref: "user",
+          ref: "User",
         },
       },
     ],

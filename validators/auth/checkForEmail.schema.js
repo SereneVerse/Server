@@ -5,6 +5,6 @@ module.exports.checkEmailSchema = Joi.object({
     .required()
     .email({
       minDomainSegments: 2,
-      tlds: { allow: ["com", "ng", "net"] },
+      tlds: { allow: ["com", "ng", "net", "gov"] },
     }),
 });

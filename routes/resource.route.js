@@ -1,7 +1,7 @@
 const { Router } = require("express");
 
 const authMiddleware = require("../middlewares/auth.middleware");
-const isAdmin = require("../middlewares/isAdmin.middleware");
+const { isAdmin } = require("../middlewares/isAdmin.middleware");
 const {
   addNewResource,
   getVideoResources,

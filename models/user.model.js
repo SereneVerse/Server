@@ -7,14 +7,19 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    userName : {
+      type : String
+    },
     email: {
       type: String,
       required: true,
       unique: true,
     },
+    displayImage: {
+      type: String,
+    },
     phone: {
       type: String,
-      required: true,
     },
     isAdmin: {
       type: Boolean,
@@ -22,19 +27,43 @@ const userSchema = new mongoose.Schema(
     },
     dateOfBirth: {
       type: Date,
-      required: true,
     },
     hash: {
       type: String,
-      required: true,
     },
-    role: {
+    loginScheme: {
       type: String,
       required: true,
-      enum: ["admin", "user", "consultant"],
+      enum: ["email", "google"],
+    },
+    status : {
+      type : String,
+      default: "complete",
+      enum: ["complete", "pending"],
+    },
+    expertsContacted: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    streaks : [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Streak",
+      }
+    ],
+    role: {
+      type: Number,
+      required: true,
+      enum: [1, 2, 3],
     },
     refreshToken: {
       type: String,
+    },
+    isOnline: {
+      type: Boolean,
+      default: false,
     },
     otp: {
       type: Number,

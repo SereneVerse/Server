@@ -3,16 +3,18 @@ const status = require("http-status");
 const ForbiddenRequestError = require("../exceptions/forbidden.exception");
 const UnauthorizedRequestError = require("../exceptions/badRequest.exception");
 const { Post } = require("../models/post.model");
-const { validateDbId } = require("../utils/validateMongoId");
+const { validateDbId } = require("../utils/mongoId.utils");
 
 module.exports.createDailyPost = AsyncHandler(async (req, res, next) => {
   try {
     const { userId } = req;
     await validateDbId(userId);
-    const { content } = req.body;
+    const { title, content, url } = req.body;
 
     const post = await Post.create({
       postedBy: userId,
+      title,
+      url,
       datePosted: new Date(Date.now()),
       content,
     });
@@ -47,7 +49,10 @@ module.exports.createComment = AsyncHandler(async (req, res, next) => {
         },
       },
       { new: true }
-    );
+    ).populate({
+      path: "comments.madeBy",
+      select: "userName fullName email displayImage isOnline",
+    });
 
     return res.status(status.OK).json({
       status: "success",
@@ -78,7 +83,10 @@ module.exports.deleteComment = AsyncHandler(async (req, res, next) => {
         },
       },
       { new: true }
-    );
+    ).populate({
+      path: "comments.madeBy",
+      select: "userName fullName email displayImage isOnline",
+    });
 
     return res.status(status.OK).json({
       status: "success",
@@ -114,9 +122,18 @@ module.exports.updateDailyPost = AsyncHandler(async (req, res, next) => {
     const { userId } = req;
     const { id } = req.params;
     await validateDbId(userId, id);
-    const { content } = req.body;
+    const { title, content, url } = req.body;
 
-    const post = await Post.findByIdAndUpdate(id, { content }, { new: true });
+    const post = await Post.findByIdAndUpdate(
+      id,
+      { content, title, url },
+      { new: true }
+    )
+      .populate({
+        path: "comments.madeBy",
+        select: "userName fullName email displayImage isOnline",
+      })
+      .lean();
 
     return res.status(status.OK).json({
       status: "success",
@@ -154,13 +171,16 @@ module.exports.getTodayPost = AsyncHandler(async (req, res, next) => {
     const { userId } = req;
     await validateDbId(userId);
 
-    const post = await Post.find({});
+    const post = await Post.findOne().sort({ createdAt: -1 }).populate({
+      path: "comments.madeBy",
+      select: "userName fullName email displayImage isOnline",
+    });
 
     return res.status(status.OK).json({
       status: "success",
       statusCode: status.OK,
       data: {
-        post : post[0],
+        post,
       },
     });
   } catch (error) {

@@ -2,8 +2,9 @@ const AsyncHandler = require("express-async-handler");
 const status = require("http-status");
 const ForbiddenRequestError = require("../exceptions/forbidden.exception");
 const UnauthorizedRequestError = require("../exceptions/badRequest.exception");
-const { validateDbId } = require("../utils/validateMongoId");
+const { validateDbId } = require("../utils/mongoId.utils");
 const { Streak } = require("../models/streaks.model");
+const { User } = require("../models/user.model");
 
 module.exports.startNewStreak = AsyncHandler(async (req, res, next) => {
   try {
@@ -14,7 +15,12 @@ module.exports.startNewStreak = AsyncHandler(async (req, res, next) => {
     const streak = await Streak.create({
       userId,
       name,
+      currentStreak : 1,
       currentStreakStarted: new Date(Date.now()),
+    });
+
+    await User.findByIdAndUpdate(userId, {
+      $push: { streaks: streak._id },
     });
 
     return res.status(status.OK).json({
@@ -36,8 +42,15 @@ module.exports.myStreak = AsyncHandler(async (req, res, next) => {
     await validateDbId(userId, id);
 
     const streak = await Streak.findById(id);
-    streak.currentStreak = streak.currentStreak + 1;
-    await streak.save();
+
+    if (
+      new Date(streak.lastUpdated).getTime() + 24 * 60 * 60 * 1000 <=
+      Date.now()
+    ) {
+      streak.currentStreak = streak.currentStreak + 1;
+      streak.lastUpdated = Date.now();
+      await streak.save();
+    }
     return res.status(status.OK).json({
       status: "success",
       statusCode: status.OK,
@@ -80,7 +93,7 @@ module.exports.restartExistingStreak = AsyncHandler(async (req, res, next) => {
 
     const streak = await Streak.findByIdAndUpdate(
       id,
-      { status: "active" },
+      { status: "active", currentStreak : 1},
       { new: true }
     );
 

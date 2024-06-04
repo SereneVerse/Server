@@ -15,6 +15,21 @@ const chatSchema = new Schema(
       type: String,
       required: true,
     },
+    date: {
+      type: Date,
+    },
+    sentAt: {
+      type: String,
+      default: "00:00",
+    },
+    senderProfile: {
+      type: String,
+    },
+    status: {
+      type: String,
+      default: "active",
+      enum: ["active", "deleted"],
+    },
   },
   {
     timestamps: true,
@@ -25,5 +40,5 @@ const chatSchema = new Schema(
 const Chat = model("Chat", chatSchema);
 
 module.exports = {
-    Chat
-}
+  Chat,
+};

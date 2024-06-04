@@ -10,4 +10,4 @@ const controller = AsyncHandler((req, res, next) => {
   }
 });
 
-module.exports = controller
+module.exports = controller;

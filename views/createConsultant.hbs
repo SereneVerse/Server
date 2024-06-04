@@ -1,0 +1,70 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Consultant At SereneVerse</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      ::-webkit-scrollbar {
+        display: none;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh; /* Ensure the body covers the viewport height */
+      }
+      header {
+        background-color: rgba(26, 153, 142, 1);
+        height: 85px;
+      }
+      .main {
+        flex: 1;
+        /* Grow to fill remaining vertical space */
+        text-align: center;
+        background-color: rgb(255, 255, 255);
+        color: rgb(0, 0, 0);
+        font-family: sans-serif;
+        font-size: 18px;
+        font-weight: 500;
+        letter-spacing: 1px;
+        line-height: 1.5;
+        text-shadow: 1px 1px 1px rgba(255, 255, 255, 0.5);
+        padding: 20px;
+        margin-bottom: 30px;
+      }
+      .click {
+        padding: 10px;
+        margin: 10px;
+        background-color: rgba(26, 153, 142, 1);
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .click a {
+        text-decoration: none;
+      }
+      footer {
+        height: 170px;
+        background-color: rgba(26, 153, 142, 1);
+      }
+    </style>
+  </head>
+  <body>
+    <header></header>
+    <div class="main">
+      <p>
+        Dear {{fullName}}, You Received this mail because you have been invited
+        to be a consultant on SereneVerse. Please click on the link below to
+        confirm your membership and reset your password. This link expires in
+        <span style="color: red">60 minutes</span>
+      </p>
+      <p class="click">
+        <a href="{{link}}"><span style="color: white">Click Here</span></a>
+      </p>
+    </div>
+    <footer></footer>
+  </body>
+</html>

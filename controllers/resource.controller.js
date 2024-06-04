@@ -2,26 +2,38 @@ const AsyncHandler = require("express-async-handler");
 const status = require("http-status");
 const ForbiddenRequestError = require("../exceptions/forbidden.exception");
 const UnauthorizedRequestError = require("../exceptions/badRequest.exception");
-const { validateDbId } = require("../utils/validateMongoId");
+const { validateDbId } = require("../utils/mongoId.utils");
 const { Resource } = require("../models/resources.model");
 
 module.exports.addNewResource = AsyncHandler(async (req, res, next) => {
   try {
     const { userId } = req;
     await validateDbId(userId);
-    const { datePosted, type, content } = req.body;
+    const { articles, videos } = req.body;
 
-    const resource = await Resource.create({
+    const typedArticles = articles.map((article) => ({
+      ...article,
+      type: "article",
       postedBy: userId,
-      datePosted,
-      type,
-      content,
-    });
+      datePosted: new Date(Date.now()),
+    }));
+
+    const typedVideos = videos.map((video) => ({
+      ...video,
+      type: "video",
+      postedBy: userId,
+      datePosted: new Date(Date.now()),
+    }));
+
+    const newResources = [...typedArticles, ...typedVideos];
+
+    const resources = await Resource.create(newResources);
+
     return res.status(status.OK).json({
       status: "success",
       statusCode: status.OK,
       data: {
-        resource,
+        resources,
       },
     });
   } catch (error) {
@@ -78,13 +90,13 @@ module.exports.deleteResource = AsyncHandler(async (req, res, next) => {
 
 module.exports.updateResource = AsyncHandler(async (req, res, next) => {
   try {
-    const { content } = req.body;
+    const { author, description, link } = req.body;
     const { id } = req.params;
     await validateDbId(id);
 
     const resource = await Resource.findByIdAndUpdate(
       id,
-      { content },
+      { author, description, link },
       { new: true }
     );
     return res.status(status.OK).json({

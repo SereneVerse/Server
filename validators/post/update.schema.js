@@ -1,5 +1,7 @@
 const Joi = require("joi");
 
 module.exports.updatePostSchema = Joi.object({
-  content : Joi.string().required(),
+  title: Joi.string(),
+  content: Joi.string(),
+  url: Joi.string(),
 });
