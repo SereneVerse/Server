@@ -18,12 +18,13 @@ const { checkPassSchema } = require("../validators/auth/checkForPass.schema");
 const { otpSchema } = require("../validators/auth/otp.schema");
 const authMiddleware = require("../middlewares/auth.middleware");
 const passport = require("../middlewares/auth.google.middleware");
+const { authLimiter, otpLimiter } = require("../middlewares/rateLimiter");
 
 const authRouter = Router();
 
-authRouter.route("/register").post(validator(createUserSchema), register);
+authRouter.route("/register").post(authLimiter, validator(createUserSchema), register);
 
-authRouter.route("/login").post(validator(loginSchema), login);
+authRouter.route("/login").post(authLimiter, validator(loginSchema), login);
 
 authRouter
   .route("/google")
@@ -37,16 +38,16 @@ authRouter.route("/verify-expert/:token").get(verifyConsultant);
 
 authRouter
   .route("/password/forgot")
-  .post(validator(checkEmailSchema), forgotPassword);
+  .post(authLimiter, validator(checkEmailSchema), forgotPassword);
 
-authRouter.route("/refresh").get(refresh);
+authRouter.route("/refresh").post(refresh);
 
 authRouter
   .route("/password/reset")
   .patch(validator(checkPassSchema), authMiddleware, resetPassword);
 
-authRouter.route("/confirm-otp").post(validator(otpSchema), confirmOtp);
+authRouter.route("/confirm-otp").post(otpLimiter, validator(otpSchema), confirmOtp);
 
-authRouter.route("/sign-out").get(authMiddleware, logOut);
+authRouter.route("/sign-out").delete(authMiddleware, logOut);
 
 module.exports = authRouter;

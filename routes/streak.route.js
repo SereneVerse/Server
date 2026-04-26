@@ -8,6 +8,7 @@ const {
   getUserStreaks,
   getActiveStreak,
   myStreak,
+  checkIn,
 } = require("../controllers/streak.controller");
 const validator = require("../middlewares/validator.middleware");
 const { startStreakSchema } = require("../validators/streak/start.schema");
@@ -17,6 +18,8 @@ const streakRouter = Router();
 streakRouter.route("/start").post(validator(startStreakSchema), authMiddleware, startNewStreak);
 
 streakRouter.route("/yay/:id").get(authMiddleware, myStreak);
+
+streakRouter.route("/checkin/:id").post(authMiddleware, checkIn);
 
 streakRouter.route("/end/:id").get(authMiddleware, endCurrentStreak);
 

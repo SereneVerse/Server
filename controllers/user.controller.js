@@ -14,19 +14,11 @@ const BadRequestError = require("../exceptions/badRequest.exception");
 // controller to retrieve all users(admin)
 const getAllUsers = AsyncHandler(async (req, res, next) => {
   try {
-    // fetches all users in the db
-    const users = await User.find({}).populate(["expertsContacted", "streaks"]);
+    // fetches all users in the db — no eager population to keep the query fast
+    const users = await User.find({}).lean();
 
     // removes sensitive/unnecessary fields from each user
-    const sanitizedUsers = users.map((user) => {
-      user.hash = undefined;
-      user.__v = undefined;
-      user.otp = undefined;
-      user.otpCreatedAt = undefined;
-      user.otpExpiresIn = undefined;
-      user.refreshToken = undefined;
-      return user;
-    });
+    const sanitizedUsers = users.map(({ hash, __v, otp, otpCreatedAt, otpExpiresIn, refreshToken, ...safe }) => safe);
 
     return res.status(status.OK).json({
       status: "success",
@@ -58,16 +50,7 @@ const updatePassword = AsyncHandler(async (req, res, next) => {
     user.hash = hash;
     await user.save();
 
-    const sanitizedUser = {
-      ...user._doc,
-      hash: undefined,
-      password: newPass,
-      __v: undefined,
-      otp: undefined,
-      otpCreatedAt: undefined,
-      otpExpiresIn: undefined,
-      refreshToken: undefined,
-    };
+    const { hash: _h, __v, otp, otpCreatedAt, otpExpiresIn, refreshToken, ...sanitizedUser } = user.toObject();
     return res.status(status.CREATED).json({
       status: "success",
       statusCode: status.CREATED,
@@ -80,6 +63,31 @@ const updatePassword = AsyncHandler(async (req, res, next) => {
 
 const createAdmin = AsyncHandler(async (req, res, next) => {
   try {
+    const { fullName, email, phone, password, dateOfBirth } = req.body;
+
+    const existing = await User.findOne({ $or: [{ email }, { phone }] });
+    if (existing) throw new ForbiddenRequestError("User already exists");
+
+    const hash = await hashPassword(password);
+
+    const user = await User.create({
+      fullName,
+      email,
+      phone,
+      hash,
+      dateOfBirth,
+      role: 1,
+      isAdmin: true,
+      loginScheme: "email",
+      status: "complete",
+    });
+
+    const { hash: _h, __v, otp, otpCreatedAt, otpExpiresIn, refreshToken, ...safeUser } = user.toObject();
+    return res.status(status.CREATED).json({
+      status: "success",
+      statusCode: status.CREATED,
+      data: safeUser,
+    });
   } catch (error) {
     next(error);
   }
@@ -89,9 +97,8 @@ const createConsultant = AsyncHandler(async (req, res, next) => {
   try {
     const { fullName, email, phone, dateOfBirth } = req.body;
 
-    const findUser = await User.findOne({ email });
-    const findPhone = await User.findOne({ phone });
-    if (findUser || findPhone) {
+    const existing = await User.findOne({ $or: [{ email }, { phone }] });
+    if (existing) {
       throw new ForbiddenRequestError("User already exists");
     }
 
@@ -144,19 +151,20 @@ const resendConsultantMail = AsyncHandler(async (req, res, next) => {
     const template = "createConsultant";
     const token = await signToken(findUser._id);
     const link = `https://serene-verse.vercel.app/redirect-expert/${token}`;
-    // sendConsultantMail
+    // sendConsultantMail — use values from the looked-up user document
     response = await sendConsultantMail(
-      email,
+      findUser.email,
       subject,
       template,
       link,
-      fullName
+      findUser.fullName
     );
 
+    const { hash, __v, otp, otpCreatedAt, otpExpiresIn, refreshToken, ...safeUser } = findUser.toObject();
     return res.status(status.CREATED).json({
       status: "success",
       statusCode: status.CREATED,
-      data: findUser,
+      data: safeUser,
     });
   } catch (error) {
     next(error);

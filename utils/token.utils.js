@@ -1,15 +1,9 @@
-const { secret } = require("../config/constants.config");
+const { jwtAccessSecret, jwtRefreshSecret } = require("../config/constants.config");
 const jwt = require("jsonwebtoken");
 
 const signToken = async (id) => {
   try {
-    let payload = {
-      id,
-    };
-    let token = jwt.sign(payload, secret, {
-      expiresIn: "1h",
-    });
-    return token;
+    return jwt.sign({ id }, jwtAccessSecret, { expiresIn: "1h" });
   } catch (error) {
     throw new jwt.JsonWebTokenError(error);
   }
@@ -17,7 +11,7 @@ const signToken = async (id) => {
 
 const verifyToken = async (token) => {
   try {
-    let payload = jwt.verify(token, secret);
+    const payload = jwt.verify(token, jwtAccessSecret);
     return payload.id;
   } catch (error) {
     throw new jwt.JsonWebTokenError(error);
@@ -26,13 +20,7 @@ const verifyToken = async (token) => {
 
 const signRefreshToken = async (id) => {
   try {
-    let payload = {
-      id,
-    };
-    let token = jwt.sign(payload, secret, {
-      expiresIn: "7d",
-    });
-    return token;
+    return jwt.sign({ id }, jwtRefreshSecret, { expiresIn: "7d" });
   } catch (error) {
     throw new jwt.JsonWebTokenError(error);
   }

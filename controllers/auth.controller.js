@@ -1,5 +1,6 @@
 // import dependencies
 const AsyncHandler = require("express-async-handler");
+const bcrypt = require("bcrypt");
 const status = require("http-status");
 const ForbiddenRequestError = require("../exceptions/forbidden.exception");
 const UnauthorizedRequestError = require("../exceptions/badRequest.exception");
@@ -18,13 +19,12 @@ const register = AsyncHandler(async (req, res, next) => {
   // wrap all logic in a try-catch block for error handling
   try {
     // destructure the values needed from the request body
-    const { fullName, userName, password, phone, email, dateOfBirth, role } =
+    const { fullName, userName, password, phone, email, dateOfBirth } =
       req.body;
 
-    // checks if any of the users essentials exist in the db
-    const findUser = await User.findOne({ email });
-    const findPhone = await User.findOne({ phone });
-    if (findUser || findPhone) {
+    // checks if any of the users essentials exist in the db in a single query
+    const existing = await User.findOne({ $or: [{ email }, { phone }] });
+    if (existing) {
       throw new ForbiddenRequestError(
         "User with email or phone already exists"
       );
@@ -32,14 +32,14 @@ const register = AsyncHandler(async (req, res, next) => {
     // hashing the user password for data security(even I can't access it)
     const hash = await hashPassword(password);
 
-    // create a sanitized user object
+    // role is always 3 (Patient) for self-registration — never trust client
     const sanitizedUser = {
       fullName,
       hash,
       phone,
       userName,
       email,
-      role,
+      role: 3,
       loginScheme: "email",
       dateOfBirth,
     };
@@ -50,9 +50,12 @@ const register = AsyncHandler(async (req, res, next) => {
       status: "success",
       statusCode: status.CREATED,
       data: {
-        ...sanitizedUser,
-        hash: undefined,
-        password,
+        fullName,
+        userName,
+        phone,
+        email,
+        role: 3,
+        dateOfBirth,
       },
     });
   } catch (error) {
@@ -95,13 +98,8 @@ const login = AsyncHandler(async (req, res, next) => {
     findUser.refreshToken = refreshToken;
     await findUser.save();
 
-    const user = {
-      ...findUser._doc,
-      refreshToken: undefined,
-      hash: undefined,
-      password,
-      _v: undefined,
-    };
+    const { hash: _hash, refreshToken: _rt, password: _pw, __v: _v, otp: _otp, otpCreatedAt: _oc, otpExpiresIn: _oe, ...safeUser } = findUser.toObject();
+    const user = safeUser;
     return res.status(status.OK).json({
       status: "success",
       statusCode: status.OK,
@@ -194,7 +192,6 @@ const forgotPassword = AsyncHandler(async (req, res, next) => {
 
     //check whether the user exists in the db and returns error otherwise
     const user = await User.findOne({ email });
-    console.log(user);
     if (!user) throw new ForbiddenRequestError("User not Found");
 
     // Generate OTP (One-Time Password)
@@ -204,12 +201,13 @@ const forgotPassword = AsyncHandler(async (req, res, next) => {
     let template = "forgotPassword";
     let name = user.fullName;
 
-    // Send the email with the generated OTP
+    // Send the email with the plain OTP before hashing
     response = await sendMail(email, subject, template, otp, name);
 
-    // save the otp. time created and expiry date to the db
+    // hash OTP before storing so it cannot be read from the DB
+    const hashedOtp = await bcrypt.hash(String(otp), 10);
     const currentTime = Date.now();
-    user.otp = otp;
+    user.otp = hashedOtp;
     user.otpCreatedAt = currentTime;
     user.otpExpiresIn = currentTime + 10 * 60 * 1000;
     await user.save();
@@ -265,11 +263,13 @@ const confirmOtp = AsyncHandler(async (req, res, next) => {
 
     // find user with given email in the db and validate otp
     const user = await User.findOne({ email });
-    const userOtp = user.otp;
-    // returns true if otp has not expired
-    const validOtp = Date.now() >= user.otpExpiresIn ? false : true;
+    if (!user) throw new ForbiddenRequestError("User not Found");
 
-    if (!userOtp || !(otp == userOtp) || !validOtp)
+    const storedOtp = user.otp;
+    const validOtp = Date.now() < user.otpExpiresIn;
+    const otpMatch = storedOtp ? await bcrypt.compare(String(otp), String(storedOtp)) : false;
+
+    if (!otpMatch || !validOtp)
       throw new UnauthorizedRequestError("invalid or expired otp");
 
     const accessToken = await signToken(user._id);
@@ -288,7 +288,6 @@ const confirmOtp = AsyncHandler(async (req, res, next) => {
 // controller to refresh the logged in user and renew access token
 const refresh = AsyncHandler(async (req, res, next) => {
   try {
-    console.log(req.session)
     if (req.session.userId) {
       const user = await User.findById(req.session.userId);
 
@@ -317,12 +316,7 @@ const refresh = AsyncHandler(async (req, res, next) => {
     // after validating logged in user, pass a new access token
     const accessToken = await signToken(user._id);
 
-    const sanitizedUser = {
-      ...user,
-      refreshToken: undefined,
-      hash: undefined,
-      _v: undefined,
-    };
+    const { hash: _h, refreshToken: _rt, __v: _v2, otp: _otp, otpCreatedAt: _oc, otpExpiresIn: _oe, ...sanitizedUser } = user;
 
     return res.status(status.OK).json({
       status: "success",

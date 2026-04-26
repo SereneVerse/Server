@@ -14,12 +14,14 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      index: true,
     },
     displayImage: {
       type: String,
     },
     phone: {
       type: String,
+      index: true,
     },
     isAdmin: {
       type: Boolean,
@@ -57,6 +59,7 @@ const userSchema = new mongoose.Schema(
       type: Number,
       required: true,
       enum: [1, 2, 3],
+      index: true,
     },
     refreshToken: {
       type: String,
@@ -65,8 +68,16 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    aiSummary: {
+      type: String,
+      default: null,
+    },
+    aiSummaryGeneratedAt: {
+      type: Date,
+      default: null,
+    },
     otp: {
-      type: Number,
+      type: String,
     },
     otpCreatedAt: {
       type: Number,

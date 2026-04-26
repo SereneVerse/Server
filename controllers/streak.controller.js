@@ -35,6 +35,7 @@ module.exports.startNewStreak = AsyncHandler(async (req, res, next) => {
   }
 });
 
+// read-only — never mutates
 module.exports.myStreak = AsyncHandler(async (req, res, next) => {
   try {
     const { userId } = req;
@@ -42,21 +43,41 @@ module.exports.myStreak = AsyncHandler(async (req, res, next) => {
     await validateDbId(userId, id);
 
     const streak = await Streak.findById(id);
+    if (!streak) throw new ForbiddenRequestError("Streak not found");
 
-    if (
-      new Date(streak.lastUpdated).getTime() + 24 * 60 * 60 * 1000 <=
-      Date.now()
-    ) {
+    return res.status(status.OK).json({
+      status: "success",
+      statusCode: status.OK,
+      data: { streak },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// explicit check-in — increments streak only when called deliberately
+module.exports.checkIn = AsyncHandler(async (req, res, next) => {
+  try {
+    const { userId } = req;
+    const { id } = req.params;
+    await validateDbId(userId, id);
+
+    const streak = await Streak.findById(id);
+    if (!streak) throw new ForbiddenRequestError("Streak not found");
+
+    const lastUpdatedMs = new Date(streak.lastUpdated).getTime();
+    const twentyFourHoursAgo = Date.now() - 24 * 60 * 60 * 1000;
+
+    if (lastUpdatedMs <= twentyFourHoursAgo) {
       streak.currentStreak = streak.currentStreak + 1;
       streak.lastUpdated = Date.now();
       await streak.save();
     }
+
     return res.status(status.OK).json({
       status: "success",
       statusCode: status.OK,
-      data: {
-        streak,
-      },
+      data: { streak },
     });
   } catch (error) {
     next(error);

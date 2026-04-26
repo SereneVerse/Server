@@ -1,15 +1,19 @@
 {
-    "version": 2,
-    "builds": [
-      {
-        "src": "index.js",
-        "use": "@vercel/node"
-      }
-    ],
-    "routes": [
-      {
-        "src": "/(.*)",
-        "dest": "index.js"
-      }
-    ]
-  }
+  "version": 2,
+  "builds": [
+    { "src": "index.js", "use": "@vercel/node" },
+    { "src": "api/cron/reset-streaks.js", "use": "@vercel/node" },
+    { "src": "api/realtime/token.js", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/api/cron/reset-streaks", "dest": "api/cron/reset-streaks.js" },
+    { "src": "/api/realtime/token", "dest": "api/realtime/token.js" },
+    { "src": "/(.*)", "dest": "index.js" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/reset-streaks",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

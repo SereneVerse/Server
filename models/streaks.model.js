@@ -5,6 +5,7 @@ const streakSchema = new Schema(
     userId: {
       type: Types.ObjectId,
       ref: "User",
+      index: true,
     },
     status: {
       type: String,
@@ -26,7 +27,15 @@ const streakSchema = new Schema(
     },
     lastUpdated : {
       type: Date,
-      default: Date.now(),
+      default: Date.now,
+    },
+    motivationMessage: {
+      type: String,
+      default: null,
+    },
+    motivationDate: {
+      type: Date,
+      default: null,
     }
   },
   { timestamps: true }

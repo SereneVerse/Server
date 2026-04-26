@@ -49,7 +49,7 @@ userRouter
   .route("/admin/delete-expert/:id")
   .delete(authMiddleware, isAdmin, deleteConsultant);
 
-// userRouter.route("/admin/create-admin").post(validator(createAdminSchema), authMiddleware, isAdmin, createAdmin);
+userRouter.route("/admin/create-admin").post(authMiddleware, isAdmin, createAdmin);
 
 userRouter
   .route("/upload")
@@ -71,7 +71,7 @@ userRouter
 
 userRouter
   .route("/add-expert-contact/:id")
-  .get(authMiddleware, addExpertContact);
+  .post(authMiddleware, addExpertContact);
 
 userRouter.route("/").get(authMiddleware, isAdmin, getAllUsers);
 

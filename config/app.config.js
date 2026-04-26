@@ -14,18 +14,12 @@ const chatRouter = require("../routes/chat.route");
 const { resourceRouter } = require("../routes/resource.route");
 const { postRouter } = require("../routes/post.route");
 const { streakRouter } = require("../routes/streak.route");
-const { sessionSecret } = require("./constants.config");
+const { aiRouter } = require("../routes/ai.route");
+const { checkinRouter } = require("../routes/checkin.route");
+const realtimeTokenHandler = require("../api/realtime/token");
+const { sessionSecret, nodeEnv } = require("./constants.config");
 const session = require("express-session");
-const { nodeEnv, localMUrl, webMUrl } = require("./constants.config");
-const { User } = require("../models/user.model");
-
-const selectDb = () => {
-  if (nodeEnv == "production") {
-    return webMUrl;
-  } else {
-    return localMUrl;
-  }
-};
+const { selectDb } = require("./db.config");
 
 const app = express();
 
@@ -40,7 +34,7 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan("dev"));
+app.use(morgan(nodeEnv === "production" ? "combined" : "dev"));
 app.use(cookieParser());
 app.use(
   session({
@@ -71,6 +65,9 @@ app.use("/resource", resourceRouter);
 app.use("/post", postRouter);
 app.use("/streak", streakRouter);
 app.use("/chat", chatRouter);
+app.use("/ai", aiRouter);
+app.use("/checkins", checkinRouter);
+app.post("/api/realtime/token", realtimeTokenHandler);
 
 app.use(notFound);
 app.use(errHandler);
